@@ -12,4 +12,12 @@ APIs:
 /api/createCreate a record
 /api/read/:recordIdRead a specific record
 /api/modify/:recordIdUpdate a specific record
-/api/remove/:recordIdDelete a specific record
+/api/remove/:recordIdDelete a specific record. Can switch out recordId for ‘all’ to clear table
+
+/api/unique/:columnName
+counts and retrieves unique columns in given column
+
+/api/status:
+Returns number of columns and creation date of db
+
+

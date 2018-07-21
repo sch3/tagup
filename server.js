@@ -4,7 +4,6 @@ var fs = require('fs');
 var express = require('express');
 var bodyParser = require('body-parser');
 var app = express();
-//var async = require("async");
 var sqlite3 = require('sqlite3').verbose();
 var db = new sqlite3.Database('./localdb.db');
 app.use(express.json());
@@ -16,11 +15,11 @@ var dbcreationtime;
 var server = http.createServer(app).listen(8090, function() {
     //create db in memory
     db.serialize(function() {
-        // integer, float and 
+        // integer, float and boolean can be handled by REAL
         db.run("CREATE TABLE if not exists localdb (_id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INT NOT NULL,value1 REAL,value2 REAL,value3 REAL,creationDate INT NOT NULL,lastModificationDate INT NOT NULL)");
         var stmt = db.prepare("INSERT INTO localdb VALUES (?,?,?,?,?,?,?)");
-        console.log("Created TABLE");
         dbcreationtime = moment().valueOf();
+        console.log("Server listening on port 8090");
     });    
 	
 });
@@ -126,7 +125,6 @@ app.post('/api/create', function(request, response){
         var value3 = request.body["value3"] ? request.body["value3"] : 0;
         var timestamp = request.body["timestamp"] ? request.body["timestamp"] : moment().valueOf();
         var creationdate = moment().valueOf();
-        //console.log(creationdate);
         //last modified field is just now
         createstmt.run([timestamp,value1,value2,value3,creationdate,creationdate], function(err){
             if(err){
@@ -182,8 +180,6 @@ app.get('/api/status', function(req, res){
 });
 //gets unique number of columns per value
 app.get('/api/unique/:columnName', function(req,res){
-    //console.log(req.params.columnName);
-    //var responsejson = {};
     var value = req.params.columnName;
     // attempted using prepared statement but the query only counted total columns
     var getunique = db.prepare("SELECT "+value+" AS value, COUNT("+value+") AS countOf FROM localdb GROUP BY "+value);
@@ -200,27 +196,6 @@ app.get('/api/unique/:columnName', function(req,res){
             }
         }
      });
-    //console.log(req.params.columnName);
-    //select columnName, count(columnName) as CountOf from tableName group by columnName
-    //select ?, count(?) as CountOf from localdb group by localdb
-    /**
-    var getunique = db.prepare("SELECT ? AS column, COUNT(*) AS countOf FROM localdb GROUP BY ?");
-    console.log(req.params.columnName);
-    getunique.all([req.params.columnName,req.params.columnName],function(err,row){
-        if(err){
-            responsejson["error"] = err500;
-            res.status(500).json(error);
-        }else{
-            if(row){
-                console.log(row);
-                res.json(row);
-            } else{
-                responsejson["error"] = "Error retrieving unique columns by "+req.params.columnName;
-                res.status(404).json(error);
-            }
-        }
-    });
-    **/
 });
 app.on('close', function () {
   console.log("Closed");
