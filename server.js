@@ -6,18 +6,21 @@ var bodyParser = require('body-parser');
 var app = express();
 //var async = require("async");
 var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database(':memory:');
+var db = new sqlite3.Database('./localdb.db');
 app.use(express.json());
 // error messages or other constants
 var err500 = "Internal Server Error: Please try again later";
 var HashMap = require('hashmap');
 var moment = require('moment');
+var dbcreationtime;
 var server = http.createServer(app).listen(8090, function() {
     //create db in memory
     db.serialize(function() {
-        db.run("CREATE TABLE if not exists localdb (_id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INT NOT NULL,value1 TEXT,value2 text,value3 TEXT,creationDate INT NOT NULL,lastModificationDate INT NOT NULL)");
+        // integer, float and 
+        db.run("CREATE TABLE if not exists localdb (_id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INT NOT NULL,value1 REAL,value2 REAL,value3 REAL,creationDate INT NOT NULL,lastModificationDate INT NOT NULL)");
         var stmt = db.prepare("INSERT INTO localdb VALUES (?,?,?,?,?,?,?)");
         console.log("Created TABLE");
+        dbcreationtime = moment().valueOf();
     });    
 	
 });
@@ -48,9 +51,9 @@ app.put('/api/modify/:recordId', function(request, response){
     if(request.body && request.params.recordId){
         var toadd = new HashMap();
         if(request.body["timestamp"]) toadd.set("timestmap",request.body["timestamp"]);
-        if(request.body["value1"]) toadd.set("value1","\'"+request.body["value1"]+"\'");
-        if(request.body["value2"]) toadd.set("value2","\'"+request.body["value2"]+"\'");
-        if(request.body["value3"]) toadd.set("value3","\'"+request.body["value3"]+"\'");
+        if(request.body["value1"]) toadd.set("value1",request.body["value1"]);
+        if(request.body["value2"]) toadd.set("value2",request.body["value2"]);
+        if(request.body["value3"]) toadd.set("value3",request.body["value3"]);
         var toupdate = "";
         toadd.forEach(function(value, key) {
             if(toupdate.length==0){
@@ -80,23 +83,35 @@ app.put('/api/modify/:recordId', function(request, response){
 });
 //Delete: Accepts an id and deletes row with that id, or returns an error if it is not found
 app.delete('/api/remove/:recordId', function(request, response){
+    var responsejson = {};
     db.serialize(function() {
-        var deletestmt = db.run("DELETE FROM localdb WHERE _id=?",[request.params.recordId], function(err){
-            var responsejson = {};
-            if(err){
-                responsejson["error"] = err500;
-                response.status(500).json(responsejson);
-            }else{
-                if(this.changes>0){
-                    responsejson["status"] = "Successful deletion";
-                    response.status(200).json(responsejson);
-                } else{
-                    responsejson["status"] = "Unable to delete nonexistent row";
+        if(request.params.recordId==="all"){
+            db.run("DELETE FROM localdb", function(err){
+               if(err){
+                    responsejson["error"] = err500;
+                    response.status(500).json(responsejson);
+                }else{
+                    responsejson["status"] = "Deleted all rows";
                     response.status(200).json(responsejson);
                 }
+           });
+        }else{
+            var deletestmt = db.run("DELETE FROM localdb WHERE _id=?",[request.params.recordId], function(err){
+                if(err){
+                    responsejson["error"] = err500;
+                    response.status(500).json(responsejson);
+                }else{
+                    if(this.changes>0){
+                        responsejson["status"] = "Successful deletion";
+                        response.status(200).json(responsejson);
+                    } else{
+                        responsejson["status"] = "Unable to delete nonexistent row";
+                        response.status(200).json(responsejson);
+                    }
+                }
+
+            });
             }
-            
-        });
         
     });        
 });
@@ -106,9 +121,9 @@ app.post('/api/create', function(request, response){
     if(request.body){
         var createstmt = db.prepare("INSERT INTO localdb VALUES (NULL,?,?,?,?,?,?)");
         // first param is null and id increments automatically
-        var value1 = request.body["value1"] ? request.body["value1"] : "";
-        var value2 = request.body["value2"] ? request.body["value2"] : "";
-        var value3 = request.body["value3"] ? request.body["value3"] : "";
+        var value1 = request.body["value1"] ? request.body["value1"] : 0;
+        var value2 = request.body["value2"] ? request.body["value2"] : 0;
+        var value3 = request.body["value3"] ? request.body["value3"] : 0;
         var timestamp = request.body["timestamp"] ? request.body["timestamp"] : moment().valueOf();
         var creationdate = moment().valueOf();
         //console.log(creationdate);
@@ -146,6 +161,66 @@ app.get('/api/read/:recordId', function(req, res, next){
         }
     });
     
+});
+app.get('/api/status', function(req, res){
+    var responsejson = {};
+    var countstmt = db.get("SELECT COUNT(DISTINCT _id) FROM localdb", function(err,row){
+        if(err){
+            responsejson["error"] = err500;
+            res.status(500).json(error);
+        }else{
+            if(row){
+                responsejson["# unique ids"] = row["COUNT(DISTINCT _id)"];
+                responsejson["creationtime"] = dbcreationtime;
+                res.json(responsejson);
+            } else{
+                responsejson["error"] = "Status endpoint error occured";
+                res.status(404).json(error);
+            }
+        }
+    });
+});
+//gets unique number of columns per value
+app.get('/api/unique/:columnName', function(req,res){
+    //console.log(req.params.columnName);
+    //var responsejson = {};
+    var value = req.params.columnName;
+    // attempted using prepared statement but the query only counted total columns
+    var getunique = db.prepare("SELECT "+value+" AS value, COUNT("+value+") AS countOf FROM localdb GROUP BY "+value);
+     getunique.all(function(err,row){
+         if(err){
+            responsejson["error"] = err500;
+            res.status(500).json(error);
+        }else{
+            if(row){
+                res.json(row);
+            } else{
+                responsejson["error"] = "Error retrieving unique columns by "+req.params.columnName;
+                res.status(404).json(error);
+            }
+        }
+     });
+    //console.log(req.params.columnName);
+    //select columnName, count(columnName) as CountOf from tableName group by columnName
+    //select ?, count(?) as CountOf from localdb group by localdb
+    /**
+    var getunique = db.prepare("SELECT ? AS column, COUNT(*) AS countOf FROM localdb GROUP BY ?");
+    console.log(req.params.columnName);
+    getunique.all([req.params.columnName,req.params.columnName],function(err,row){
+        if(err){
+            responsejson["error"] = err500;
+            res.status(500).json(error);
+        }else{
+            if(row){
+                console.log(row);
+                res.json(row);
+            } else{
+                responsejson["error"] = "Error retrieving unique columns by "+req.params.columnName;
+                res.status(404).json(error);
+            }
+        }
+    });
+    **/
 });
 app.on('close', function () {
   console.log("Closed");
