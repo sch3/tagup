@@ -24,19 +24,17 @@ var server = http.createServer(app).listen(port, function() {
         dbcreationtime = moment().valueOf();
         console.log("Server listening on port "+port);
     });
+    // only allows values exposed to users
     uniquecheck.set("_id","0");
     uniquecheck.set("timestamp","1");
     uniquecheck.set("value1","2");
     uniquecheck.set("value2","3");
     uniquecheck.set("value3","4");
-    uniquecheck.set("creationDate","5");
-    uniquecheck.set("lastModificationDate","6");
-	
 });
 // list all records, potentially could add limit to prevent pulling too large of a response
 app.get('/api/list', function(req, res, next){
     //should use db.get to only get first one. there should be no duplicates, so no point to get more
-    var getstmt = db.prepare("SELECT * FROM localdb LIMIT ?");
+    var getstmt = db.prepare("SELECT _id,timestamp,value1,value2,value3 FROM localdb LIMIT ?");
     var limit = 2000;
     getstmt.all([limit],function(err,row){
         var error = {};
@@ -153,7 +151,7 @@ app.post('/api/create', function(request, response){
 });
 app.get('/api/read/:recordId', function(req, res, next){
     //should use db.get to only get first one. there should be no duplicates, so no point to get more
-    var getstmt = db.get("SELECT * FROM localdb WHERE _id=?",[req.params.recordId], function(err, row){
+    var getstmt = db.get("SELECT _id,timestamp,value1,value2,value3 FROM localdb WHERE _id=?",[req.params.recordId], function(err, row){
         var error = {};
         if(err){
             error["error"] = err500;
