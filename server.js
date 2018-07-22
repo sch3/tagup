@@ -12,7 +12,8 @@ var err500 = "Internal Server Error: Please try again later";
 var HashMap = require('hashmap');
 var moment = require('moment');
 var dbcreationtime;
-var server = http.createServer(app).listen(8090, function() {
+// 8090 is to test locally. Heroku needs to bind to port
+var server = http.createServer(app).listen(process.env.PORT || 8090, function() {
     //create db in memory
     db.serialize(function() {
         // integer, float and boolean can be handled by REAL
