@@ -12,16 +12,25 @@ var err500 = "Internal Server Error: Please try again later";
 var HashMap = require('hashmap');
 var moment = require('moment');
 var dbcreationtime;
+var uniquecheck = new HashMap();
 // 8090 is to test locally. Heroku needs to bind to port
-var server = http.createServer(app).listen(process.env.PORT || 8090, function() {
+var port = process.env.PORT || 8090;
+var server = http.createServer(app).listen(port, function() {
     //create db in memory
     db.serialize(function() {
         // integer, float and boolean can be handled by REAL
         db.run("CREATE TABLE if not exists localdb (_id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp INT NOT NULL,value1 REAL,value2 REAL,value3 REAL,creationDate INT NOT NULL,lastModificationDate INT NOT NULL)");
         var stmt = db.prepare("INSERT INTO localdb VALUES (?,?,?,?,?,?,?)");
         dbcreationtime = moment().valueOf();
-        console.log("Server listening on port 8090");
-    });    
+        console.log("Server listening on port "+port);
+    });
+    uniquecheck.set("_id","0");
+    uniquecheck.set("timestamp","1");
+    uniquecheck.set("value1","2");
+    uniquecheck.set("value2","3");
+    uniquecheck.set("value3","4");
+    uniquecheck.set("creationDate","5");
+    uniquecheck.set("lastModificationDate","6");
 	
 });
 // list all records, potentially could add limit to prevent pulling too large of a response
@@ -166,7 +175,7 @@ app.get('/api/status', function(req, res){
     var countstmt = db.get("SELECT COUNT(DISTINCT _id) FROM localdb", function(err,row){
         if(err){
             responsejson["error"] = err500;
-            res.status(500).json(error);
+            res.status(500).json(responsejson);
         }else{
             if(row){
                 responsejson["# unique ids"] = row["COUNT(DISTINCT _id)"];
@@ -174,7 +183,7 @@ app.get('/api/status', function(req, res){
                 res.json(responsejson);
             } else{
                 responsejson["error"] = "Status endpoint error occured";
-                res.status(404).json(error);
+                res.status(404).json(responsejson);
             }
         }
     });
@@ -182,21 +191,27 @@ app.get('/api/status', function(req, res){
 //gets unique number of columns per value
 app.get('/api/unique/:columnName', function(req,res){
     var value = req.params.columnName;
+    var responsejson = {};
     // attempted using prepared statement but the query only counted total columns
-    var getunique = db.prepare("SELECT "+value+" AS value, COUNT("+value+") AS countOf FROM localdb GROUP BY "+value);
-     getunique.all(function(err,row){
-         if(err){
-            responsejson["error"] = err500;
-            res.status(500).json(error);
-        }else{
-            if(row){
-                res.json(row);
-            } else{
-                responsejson["error"] = "Error retrieving unique columns by "+req.params.columnName;
-                res.status(404).json(error);
+    if(uniquecheck.has(value)){
+        var getunique = db.prepare("SELECT "+value+" AS value, COUNT("+value+") AS countOf FROM localdb GROUP BY "+value);
+        getunique.all(function(err,row){
+             if(err){
+                responsejson["error"] = err500;
+                res.status(500).json(responsejson);
+            }else{
+                if(row){
+                    res.json(row);
+                } else{
+                    responsejson["error"] = "Error retrieving unique columns by "+req.params.columnName;
+                    res.status(404).json(responsejson);
+                }
             }
-        }
-     });
+         });
+    }else{
+        responsejson["error"] = "Error retrieving unique columns due to invalid column name "+req.params.columnName;
+        res.status(404).json(responsejson);
+    }
 });
 app.on('close', function () {
   console.log("Closed");
