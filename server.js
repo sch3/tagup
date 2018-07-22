@@ -59,7 +59,7 @@ app.put('/api/modify/:recordId', function(request, response){
     var responsejson = {};
     if(request.body && request.params.recordId){
         var toadd = new HashMap();
-        if(request.body["timestamp"]) toadd.set("timestmap",request.body["timestamp"]);
+        if(request.body["timestamp"]) toadd.set("timestamp",request.body["timestamp"]);
         if(request.body["value1"]) toadd.set("value1",request.body["value1"]);
         if(request.body["value2"]) toadd.set("value2",request.body["value2"]);
         if(request.body["value3"]) toadd.set("value3",request.body["value3"]);
