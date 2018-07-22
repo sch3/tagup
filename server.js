@@ -63,6 +63,7 @@ app.put('/api/modify/:recordId', function(request, response){
         if(request.body["value1"]) toadd.set("value1",request.body["value1"]);
         if(request.body["value2"]) toadd.set("value2",request.body["value2"]);
         if(request.body["value3"]) toadd.set("value3",request.body["value3"]);
+        toadd.set("lastModificationDate",moment().valueOf());
         var toupdate = "";
         toadd.forEach(function(value, key) {
             if(toupdate.length==0){
@@ -72,7 +73,6 @@ app.put('/api/modify/:recordId', function(request, response){
                 
             }
         });
-        //console.log(toupdate);
         var sql = "UPDATE localdb SET "+toupdate+" WHERE _id = ?";
         var updatestmt = db.prepare(sql);
         updatestmt.run([request.params.recordId], function(err){
@@ -80,7 +80,7 @@ app.put('/api/modify/:recordId', function(request, response){
                 responsejson["error"]="update statement encountered error";
                 response.status(404).json(responsejson);
             }else{
-                responsejson["status"]="updated localdb successfully";
+                responsejson["status"]="updated localdb successfully if row exists";
                 response.json(responsejson);
             }
         });
@@ -138,7 +138,6 @@ app.post('/api/create', function(request, response){
         //last modified field is just now
         createstmt.run([timestamp,value1,value2,value3,creationdate,creationdate], function(err){
             if(err){
-                //console.log(err);
                 responsejson["error"] = err500;
                 response.status(500).json(responsejson);
             }else{
