@@ -40,7 +40,7 @@ curl -X PUT \
 Example: fast-sierra-74790.herokuapp.com/api/remove/1
 
 GET /api/unique/:columnName
-counts and retrieves unique columns in given column
+counts and retrieves unique column values in given column
 Example: fast-sierra-74790.herokuapp.com/api/unique/timestamp
 
 GET /api/status:
